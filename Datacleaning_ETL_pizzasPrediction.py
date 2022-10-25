@@ -3,6 +3,7 @@
 #IMPORT MODULES
 import numpy as np
 import pandas as pd
+#import xml.etree.ElementTree as ET
 
 
 #IMPORT CSV's AS PD.DATAFRAMES (EXTRACT)
@@ -26,6 +27,33 @@ def extract():
 
 
 
+
+#DATA QUALITY
+def data_quality(dfs):
+
+    for i, df in enumerate(dfs):
+
+        #obtain data types
+        df_types = df.dtypes
+
+        #obtain number of null or NaN values
+        df_nulls = df.isnull().sum()
+
+        #concatenate both pd.series into dataframe
+        df_quality = pd.concat([df_types, df_nulls], axis=1, keys=['data_types', 'null_values'])
+
+        dfs[i] = df_quality
+
+
+    dfs_quality = pd.concat(dfs)
+
+    return dfs_quality
+
+
+
+
+
+
 #DATA CLEANING
 def correct_quantities(x):
     replacements = {1:1, '1':1, 'one':1, 'One':1, -1:1, '-1':1,
@@ -41,6 +69,7 @@ def correct_pizza_IDs(string):
 
 def data_cleaning(unordered_pizzas_details, orders_details, pizzas_ingredients, pizza_type_price):
     #Order dataframe by ID's
+
     ordered_pizzas_details = unordered_pizzas_details.sort_values(by='order_details_id')
     orders_details = orders_details.sort_values(by='order_id')
     
@@ -65,18 +94,6 @@ def data_cleaning(unordered_pizzas_details, orders_details, pizzas_ingredients, 
     #we don't need to study pizza_id's distribution throughout the year
     
     return [ordered_pizzas_details, orders_details, pizzas_ingredients, pizza_type_price]
-
-
-
-
-
-
-#DATA QUALITY
-def data_quality(df):
-    #obtain number of null or NaN values
-    df = df.isnull().sum()
-    print(df)
-    
     
 
     
@@ -88,9 +105,7 @@ def data_quality(df):
 def ponderate_quatity_by_size(args):
     ponderations = {'S':0.75 , 'M':1, 'L':1.25, 'XL':1.5, 'XXL':1.75}
     ponderation = ponderations[args[2]]
-    # print('p:',ponderation)
-    # print(args[3])
-    # print(ponderation*args[3])
+
     return ponderation*args[4]
 
 
@@ -101,7 +116,7 @@ def multiply_by(x, factor):
 def transform(ordered_pizzas_details, orders_details, pizzas_ingredients, pizza_type_price):
 
     #Obtain number of orders of each pizza_id
-    number_pizzas_ordered_by_ID = ordered_pizzas_details.groupby('pizza_id').sum()['quantity']   #pd.series
+    number_pizzas_ordered_by_ID = ordered_pizzas_details.groupby('pizza_id').sum(numeric_only=True)['quantity']   #pd.series
 
     #pd.series to pd.dataframe
     df_temp = pd.DataFrame(data = [number_pizzas_ordered_by_ID.values], columns = number_pizzas_ordered_by_ID.index).T  
@@ -113,7 +128,7 @@ def transform(ordered_pizzas_details, orders_details, pizzas_ingredients, pizza_
     pizza_type_price_quantity['ponderated_quantities'] = pizza_type_price_quantity.apply(ponderate_quatity_by_size, axis = 1)
 
     #Obtain ponderated quantities of each pizza_type_id  (According to the sizes 'S':0.75, 'M':1, 'L':1.25, 'XL':1.5, 'XXL':1.75   of pizza_id)
-    df_temp = pizza_type_price_quantity.groupby('pizza_type_id').sum()['ponderated_quantities'].to_frame()
+    df_temp = pizza_type_price_quantity.groupby('pizza_type_id').sum(numeric_only=True)['ponderated_quantities'].to_frame()
     pizzas_ingredients = pizzas_ingredients.merge(df_temp, on='pizza_type_id', how = 'inner')
 
     #Obtain ponderated quantities of each ingredient
@@ -181,16 +196,15 @@ if __name__ == '__main__':
     
     #DATA QUALITY
     print('DATA QUALITY')
-    print('Number of null values per field:\n')
-    for i in dfs:
-        data_quality(i)
-        print()
+    #print('Number of null values per field:\n')
+    print(data_quality([df for df in dfs]))
+    print()
 
     
     #TRANSFORM
     dfs = data_cleaning(dfs[1], dfs[2], dfs[3], dfs[4])
     #print(dfs)
-    df = transform(dfs[0], dfs[1], dfs[2], dfs[3])
+    df_adquirements = transform(dfs[0], dfs[1], dfs[2], dfs[3])
     
     #lOAD
-    load(df)
+    load(df_adquirements)
